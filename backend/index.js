@@ -80,9 +80,10 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
-  startAiCronJob(); // register daily Gemini scan — runs at midnight
+  startAiCronJob();
   startSensorCronJob();
-  app.listen(PORT, () => {
+
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(
       `Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`,
     );
