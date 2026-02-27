@@ -4,7 +4,7 @@ import Batch from "../model/batch.model.js";
 import SensorReading from "../model/sensorReading.model.js";
 import Alert from "../model/aiAlert.model.js";
 import AppError from "../utils/AppError.js";
-
+import mongoose from "mongoose";
 const DEFAULT_RISK_THRESHOLD = 50;
 const DEFAULT_LIMIT = 10;
 
@@ -140,7 +140,8 @@ export const getInventorySummary = async (warehouseId) => {
   const summary = await Batch.aggregate([
     {
       $match: {
-        warehouseId,
+        // Explicitly cast the string to an ObjectId
+        warehouseId: new mongoose.Types.ObjectId(warehouseId), 
         isActive: true,
         isDeleted: false,
         status: { $nin: ["Dispatched", "Disposed"] },
