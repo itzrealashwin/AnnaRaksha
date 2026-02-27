@@ -4,6 +4,7 @@ import Warehouse from "../model/warehouse.model.js";
 import AppError from "../utils/AppError.js";
 import mongoose from "mongoose";
 
+
 // Helper: Generate unique code like PUNE-001, MUM-002 etc.
 const generateUniqueCode = async (namePrefix = "WH") => {
   const prefix = namePrefix.slice(0, 4).toUpperCase();
