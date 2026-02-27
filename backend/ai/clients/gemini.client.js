@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AI_CONFIG } from "../config/ai.config.js";
+import AppError from "../../utils/AppError.js";
 
 const genAI = new GoogleGenerativeAI(AI_CONFIG.GEMINI_API_KEY);
 
@@ -46,7 +47,11 @@ export const callGemini = async (systemPrompt, responseSchema = null, inputData 
       console.warn(`[Gemini] Attempt ${attempt} failed:`, error.message);
       
       if (attempt > AI_CONFIG.MAX_RETRIES) {
-        throw new Error(`Gemini failed after ${AI_CONFIG.MAX_RETRIES} retries. Final error: ${error.message}`);
+        throw new AppError(
+          `Gemini unavailable after ${AI_CONFIG.MAX_RETRIES} retries: ${error.message}`,
+          503,
+          "GEMINI_UNAVAILABLE"
+        );
       }
       
       await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
