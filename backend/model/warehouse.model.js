@@ -23,12 +23,7 @@ const warehouseSchema = new mongoose.Schema(
     },
     warehouseType: {
       type: String,
-      enum: [
-        "general",
-        "cold",
-        "dry",
-        "open-air",
-      ],
+      enum: ["general", "cold", "dry", "open-air"],
       default: "general",
       index: true,
     },
@@ -71,7 +66,7 @@ const warehouseSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-     
+
     isActive: {
       type: Boolean,
       default: true,
@@ -88,10 +83,17 @@ warehouseSchema.index({ name: 1 });
 warehouseSchema.index({ status: 1, isActive: 1 });
 warehouseSchema.index({ createdBy: 1, isActive: 1 });
 
-
 warehouseSchema.virtual("utilizationPercent").get(function () {
   if (!this.capacity || this.capacity === 0) return 0;
   return Math.min(100, (this.currentUtilization / this.capacity) * 100);
+});
+
+// Warehouse schema ke andar add kar sakte ho
+warehouseSchema.pre("save", function (next) {
+  // Ensure utilization sync with stock (safety)
+  if (this.isModified("currentStock")) {
+    this.currentUtilization = this.currentStock;
+  }
 });
 
 const Warehouse = mongoose.model("Warehouse", warehouseSchema);

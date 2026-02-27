@@ -4,6 +4,7 @@ import Batch from "../model/batch.model.js";
 import SensorReading from "../model/sensorReading.model.js";
 import Alert from "../model/aiAlert.model.js";
 import AppError from "../utils/AppError.js";
+import mongoose from "mongoose";
 
 const DEFAULT_RISK_THRESHOLD = 50;
 const DEFAULT_LIMIT = 10;
@@ -11,13 +12,60 @@ const DEFAULT_LIMIT = 10;
 /**
  * Main overview stats card
  */
-export const getDashboardOverview = async (warehouseId, userId, role) => {
-  // Permission check (very basic – improve as per your auth logic)
+// export const getDashboardOverview = async (warehouseId, userId, role) => {
+//   // Permission check (very basic – improve as per your auth logic)
+//   const warehouse = await Warehouse.findById(warehouseId);
+//   if (!warehouse || !warehouse.isActive) {
+//     throw new AppError("Warehouse not found or inactive", 404);
+//   }
+//   // Add role-based check if needed
+
+//   const batchStats = await Batch.aggregate([
+//     {
+//       $match: { warehouseId: warehouse._id, isActive: true, isDeleted: false },
+//     },
+//     {
+//       $group: {
+//         _id: null,
+//         totalBatches: { $sum: 1 },
+//         totalStock: { $sum: "$quantityCurrent" },
+//         highRiskCount: {
+//           $sum: {
+//             $cond: [{ $gte: ["$riskScore", DEFAULT_RISK_THRESHOLD] }, 1, 0],
+//           },
+//         },
+//         criticalRiskCount: {
+//           $sum: { $cond: [{ $gte: ["$riskScore", 80] }, 1, 0] },
+//         },
+//       },
+//     },
+//   ]);
+
+//   const stats = batchStats[0] || {
+//     totalBatches: 0,
+//     totalStock: 0,
+//     highRiskCount: 0,
+//     criticalRiskCount: 0,
+//   };
+
+//   return {
+//     warehouseName: warehouse.name,
+//     capacity: warehouse.capacity,
+//     currentStock: warehouse.currentStock || stats.totalStock,
+//     utilizationPercent: warehouse.utilizationPercent,
+//     totalBatches: stats.totalBatches,
+//     riskBatchCount: stats.highRiskCount,
+//     criticalRiskCount: stats.criticalRiskCount,
+//     status: warehouse.status,
+//     lastUpdated: new Date(),
+//   };
+// };
+
+export const getDashboardOverview = async (warehouseId) => {
   const warehouse = await Warehouse.findById(warehouseId);
   if (!warehouse || !warehouse.isActive) {
     throw new AppError("Warehouse not found or inactive", 404);
   }
-  // Add role-based check if needed
 
   const batchStats = await Batch.aggregate([
     {
@@ -36,6 +84,12 @@ export const getDashboardOverview = async (warehouseId, userId, role) => {
         criticalRiskCount: {
           $sum: { $cond: [{ $gte: ["$riskScore", 80] }, 1, 0] },
         },
+        avgRisk: { $avg: "$riskScore" },
+        nearExpiryCount: {
+          $sum: {
+            $cond: [{ $lte: ["$daysToExpiry", 7] }, 1, 0], // new: daysToExpiry virtual use
+          },
+        },
       },
     },
   ]);
@@ -45,21 +99,37 @@ export const getDashboardOverview = async (warehouseId, userId, role) => {
     totalStock: 0,
     highRiskCount: 0,
     criticalRiskCount: 0,
+    avgRisk: 0,
+    nearExpiryCount: 0,
   };
+
+  // Verify stock sync (safety)
+  const calculatedStock = stats.totalStock;
+  if (Math.abs(warehouse.currentStock - calculatedStock) > 1) {
+    console.warn(
+      `Stock mismatch for warehouse ${warehouseId}: DB=${warehouse.currentStock}, calc=${calculatedStock}`,
+    );
+  }
 
   return {
     warehouseName: warehouse.name,
     capacity: warehouse.capacity,
-    currentStock: warehouse.currentStock || stats.totalStock,
+    currentStock: warehouse.currentStock,
     utilizationPercent: warehouse.utilizationPercent,
     totalBatches: stats.totalBatches,
     riskBatchCount: stats.highRiskCount,
     criticalRiskCount: stats.criticalRiskCount,
+    averageRiskScore: Math.round(stats.avgRisk * 10) / 10,
+    nearExpiryCount: stats.nearExpiryCount,
+    overallHealthScore: Math.round(
+      warehouse.utilizationPercent * 0.3 +
+        (100 - stats.avgRisk) * 0.4 +
+        (100 - (stats.nearExpiryCount / stats.totalBatches || 1) * 100) * 0.3,
+    ),
     status: warehouse.status,
     lastUpdated: new Date(),
   };
 };
-
 /**
  * Current environment + short history
  */
@@ -93,6 +163,27 @@ export const getEnvironmentTrend = async (warehouseId, hours = 24) => {
 /**
  * Risk batches list
  */
+// export const getRiskBatches = async (
+//   warehouseId,
+//   minRisk = DEFAULT_RISK_THRESHOLD,
+//   limit = DEFAULT_LIMIT,
+// ) => {
+//   const batches = await Batch.find({
+//     warehouseId,
+//     isActive: true,
+//     isDeleted: false,
+//     riskScore: { $gte: minRisk },
+//   })
+//     .sort({ riskScore: -1, expiryDate: 1 })
+//     .limit(limit)
+//     .select(
+//       "batchId produceType quantityCurrent quantityInitial expiryDate riskScore riskLevel status daysStored",
+//     )
+//     .lean();
+
+//   return batches;
+// };
+
 export const getRiskBatches = async (
   warehouseId,
   minRisk = DEFAULT_RISK_THRESHOLD,
@@ -104,16 +195,15 @@ export const getRiskBatches = async (
     isDeleted: false,
     riskScore: { $gte: minRisk },
   })
-    .sort({ riskScore: -1, expiryDate: 1 })
+    .sort({ riskScore: -1, daysToExpiry: 1 }) // new: sort by risk then expiry
     .limit(limit)
     .select(
-      "batchId produceType quantityCurrent quantityInitial expiryDate riskScore riskLevel status daysStored",
+      "batchId produceType quantityCurrent expiryDate daysToExpiry daysStored riskScore riskLevel status",
     )
-    .lean();
+    .lean(); // virtuals work with lean
 
   return batches;
 };
-
 /**
  * Recent active alerts
  */
@@ -136,11 +226,54 @@ export const getRecentAlerts = async (warehouseId, limit = 15) => {
 /**
  * Inventory summary grouped by produceType
  */
+// export const getInventorySummary = async (warehouseId) => {
+//   const summary = await Batch.aggregate([
+//     {
+//       $match: {
+//         warehouseId,
+//         isActive: true,
+//         isDeleted: false,
+//         status: { $nin: ["Dispatched", "Disposed"] },
+//       },
+//     },
+//     {
+//       $group: {
+//         _id: "$produceType",
+//         totalQuantity: { $sum: "$quantityCurrent" },
+//         batchCount: { $sum: 1 },
+//         avgRisk: { $avg: "$riskScore" },
+//         nearExpiryCount: {
+//           $sum: {
+//             $cond: [
+//               { $lte: ["$daysStored", { $multiply: ["$shelfLifeDays", 0.8] }] },
+//               1,
+//               0,
+//             ],
+//           },
+//         },
+//       },
+//     },
+//     {
+//       $project: {
+//         produceType: "$_id",
+//         totalQuantity: 1,
+//         batchCount: 1,
+//         avgRisk: { $round: ["$avgRisk", 1] },
+//         nearExpiryCount: 1,
+//         _id: 0,
+//       },
+//     },
+//     { $sort: { totalQuantity: -1 } },
+//   ]);
+
+//   return summary;
+// };
+
 export const getInventorySummary = async (warehouseId) => {
   const summary = await Batch.aggregate([
     {
       $match: {
-        warehouseId,
+        warehouseId: new mongoose.Types.ObjectId(warehouseId),
         isActive: true,
         isDeleted: false,
         status: { $nin: ["Dispatched", "Disposed"] },
@@ -154,11 +287,7 @@ export const getInventorySummary = async (warehouseId) => {
         avgRisk: { $avg: "$riskScore" },
         nearExpiryCount: {
           $sum: {
-            $cond: [
-              { $lte: ["$daysStored", { $multiply: ["$shelfLifeDays", 0.8] }] },
-              1,
-              0,
-            ],
+            $cond: [{ $lte: ["$daysToExpiry", 7] }, 1, 0], // improved: daysToExpiry use
           },
         },
       },

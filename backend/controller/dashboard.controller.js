@@ -6,7 +6,7 @@ export const getOverview = catchAsync(async (req, res) => {
   const { warehouseId } = req.params;
   const data = await dashboardService.getDashboardOverview(
     warehouseId,
-    req.user.id,
+    req.user._id,
     req.user.role,
   );
   res.status(200).json({ success: true, data });
