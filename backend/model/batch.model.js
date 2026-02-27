@@ -103,7 +103,6 @@ const batchSchema = new mongoose.Schema(
   },
 );
 
-batchSchema.index({ batchId: 1 }, { unique: true });
 batchSchema.index({ warehouseId: 1, status: 1 });
 batchSchema.index({ warehouseId: 1, riskLevel: 1, riskScore: -1 });
 batchSchema.index({ warehouseId: 1, isActive: 1 });

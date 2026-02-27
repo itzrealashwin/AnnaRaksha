@@ -8,51 +8,81 @@ import AppError from '../utils/AppError.js';
  */
 const protect = async (req, res, next) => {
   try {
-    // Extract token from Authorization header
+    // ✅ BYPASS AUTH IN DEVELOPMENT
+    if (process.env.NODE_ENV === "development") {
+      console.log("⚠️ Dev mode: Auth bypassed");
+
+      // Optional: attach a mock user
+      req.user = {
+        _id: "69a1657836e37cf6044d30ef",
+        role: "admin",
+        isActive: true,
+        tokenVersion: 0,
+      };
+
+      return next();
+    }
+
+    // ----------------------------
+    // 🔐 NORMAL PRODUCTION LOGIC
+    // ----------------------------
+
     let token;
     if (
       req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer ')
+      req.headers.authorization.startsWith("Bearer ")
     ) {
-      token = req.headers.authorization.split(' ')[1];
+      token = req.headers.authorization.split(" ")[1];
     }
 
     if (!token) {
-      throw new AppError('Authentication required. Please log in.', 401, 'AUTH_REQUIRED');
+      throw new AppError(
+        "Authentication required. Please log in.",
+        401,
+        "AUTH_REQUIRED"
+      );
     }
 
-    // Verify the token
     let decoded;
     try {
       decoded = verifyAccessToken(token);
     } catch (err) {
-      if (err.name === 'TokenExpiredError') {
-        throw new AppError('Access token has expired. Please refresh.', 401, 'TOKEN_EXPIRED');
+      if (err.name === "TokenExpiredError") {
+        throw new AppError(
+          "Access token has expired. Please refresh.",
+          401,
+          "TOKEN_EXPIRED"
+        );
       }
-      throw new AppError('Invalid access token.', 401, 'INVALID_TOKEN');
+      throw new AppError("Invalid access token.", 401, "INVALID_TOKEN");
     }
 
-    // Find user and check token version
     const user = await User.findById(decoded.userId);
 
     if (!user) {
-      throw new AppError('User belonging to this token no longer exists.', 401, 'USER_NOT_FOUND');
-    }
-
-    if (!user.isActive) {
-      throw new AppError('Your account has been deactivated.', 403, 'ACCOUNT_DEACTIVATED');
-    }
-
-    // Token version check — enables instant global logout
-    if (decoded.tokenVersion !== user.tokenVersion) {
       throw new AppError(
-        'Token has been invalidated. Please log in again.',
+        "User belonging to this token no longer exists.",
         401,
-        'TOKEN_VERSION_MISMATCH'
+        "USER_NOT_FOUND"
       );
     }
 
-    // Attach user to request
+    if (!user.isActive) {
+      throw new AppError(
+        "Your account has been deactivated.",
+        403,
+        "ACCOUNT_DEACTIVATED"
+      );
+    }
+
+    if (decoded.tokenVersion !== user.tokenVersion) {
+      throw new AppError(
+        "Token has been invalidated. Please log in again.",
+        401,
+        "TOKEN_VERSION_MISMATCH"
+      );
+    }
+
     req.user = user;
     next();
   } catch (error) {
