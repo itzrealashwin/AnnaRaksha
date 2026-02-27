@@ -67,9 +67,9 @@ const aiAlertSchema = new mongoose.Schema(
   }
 );
 
-aioAlertSchema.index({ warehouseId: 1, status: 1, riskLevel: 1 });
-aioAlertSchema.index({ batchId: 1, status: 1 });
-aioAlertSchema.index({ createdAt: -1 });
+aiAlertSchema.index({ warehouseId: 1, status: 1, riskLevel: 1 });
+aiAlertSchema.index({ batchId: 1, status: 1 });
+aiAlertSchema.index({ createdAt: -1 });
 
 const AiAlert = mongoose.model('AiAlert', aiAlertSchema);
 

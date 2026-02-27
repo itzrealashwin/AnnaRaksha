@@ -1,6 +1,7 @@
 import { SchemaType } from "@google/generative-ai";
 import { callGemini } from "../ai/clients/gemini.client.js";
 import SensorReading from "../model/sensorReading.model.js";
+import AppError from "../utils/AppError.js";
 // 1. Define the strict response schema
 const riskAnalysisSchema = {
   type: SchemaType.OBJECT,
@@ -35,9 +36,12 @@ export const analyzeRisk = async (batch) => {
   const latestSensor = await SensorReading
     .findOne({ warehouseId: batch.warehouseId })
     .sort({ createdAt: -1 });
-  // Safety check in case there are no sensor readings yet
   if (!latestSensor) {
-    throw new Error(`No sensor readings found for warehouse ${batch.warehouseId}`);
+    throw new AppError(
+      `No sensor readings found for warehouse ${batch.warehouseId}`,
+      422,
+      "NO_SENSOR_DATA"
+    );
   }
   const daysStored = (Date.now() - batch.arrivalDate.getTime()) / (1000 * 60 * 60 * 24);
   // 3. The dynamic payload

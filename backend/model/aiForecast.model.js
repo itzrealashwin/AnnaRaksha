@@ -41,10 +41,10 @@ const aiForecastSchema = new mongoose.Schema(
   }
 );
 
-aioForecastSchema.index({ type: 1, warehouseId: 1, batchId: 1 });
-aioForecastSchema.index({ createdAt: -1 });
+aiForecastSchema.index({ type: 1, warehouseId: 1, batchId: 1 });
+aiForecastSchema.index({ createdAt: -1 });
 
-aioForecastSchema.pre('save', function (next) {
+aiForecastSchema.pre('save', function (next) {
   if (this.type === 'warehouse') {
     this.batchId = null;
   }

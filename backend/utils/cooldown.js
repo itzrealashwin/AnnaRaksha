@@ -1,4 +1,4 @@
-import { AI_CONFIG } from "../config/ai.config.js";
+import { AI_CONFIG } from "../ai/config/ai.config.js";
 
 export const isInCooldown = (batch) => {
   if (!batch.aiCooldownUntil) return false;
