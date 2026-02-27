@@ -6,7 +6,7 @@ import catchAsync from "../utils/catchAsync.js"; // wrapper for async error hand
 export const createWarehouse = catchAsync(async (req, res) => {
   const warehouse = await warehouseService.createWarehouse(
     req.body,
-    req.user.id,
+    req.user._id,
   );
   res.status(201).json({
     success: true,
@@ -16,7 +16,7 @@ export const createWarehouse = catchAsync(async (req, res) => {
 
 export const getAllWarehouses = catchAsync(async (req, res) => {
   const result = await warehouseService.getAllWarehouses({
-    userId: req.user.id,
+    userId: req.user._id,
     role: req.user.role,
     query: req.query,
   });
@@ -30,7 +30,7 @@ export const getAllWarehouses = catchAsync(async (req, res) => {
 export const getWarehouse = catchAsync(async (req, res) => {
   const warehouse = await warehouseService.getWarehouseById(
     req.params.id,
-    req.user.id,
+    req.user._id,
     req.user.role,
   );
 
@@ -44,7 +44,7 @@ export const updateWarehouse = catchAsync(async (req, res) => {
   const warehouse = await warehouseService.updateWarehouse(
     req.params.id,
     req.body,
-    req.user.id,
+    req.user._id,
     req.user.role,
   );
 
@@ -57,7 +57,7 @@ export const updateWarehouse = catchAsync(async (req, res) => {
 export const deleteWarehouse = catchAsync(async (req, res) => {
   const result = await warehouseService.softDeleteWarehouse(
     req.params.id,
-    req.user.id,
+    req.user._id,
     req.user.role,
   );
 

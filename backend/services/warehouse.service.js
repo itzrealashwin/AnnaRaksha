@@ -2,6 +2,7 @@
 
 import Warehouse from "../model/warehouse.model.js";
 import AppError from "../utils/AppError.js";
+import mongoose from "mongoose";
 
 // Helper: Generate unique code like PUNE-001, MUM-002 etc.
 const generateUniqueCode = async (namePrefix = "WH") => {
@@ -21,7 +22,6 @@ export const createWarehouse = async (data, userId) => {
   let code = data.code;
 
   if (!code) {
-    // Auto-generate if not provided
     code = await generateUniqueCode(data.name || "WH");
   }
 
@@ -40,12 +40,10 @@ export const createWarehouse = async (data, userId) => {
 export const getAllWarehouses = async ({ userId, role, query = {} }) => {
   const filter = { isActive: true };
 
-  // Role-based access filtering
   if (role !== "admin" && role !== "superadmin") {
-    filter.$or = [{ createdBy: userId }, { managerId: userId }];
+    filter.$or = [{ createdBy: new mongoose.Types.ObjectId(userId) }, { managerId: new mongoose.Types.ObjectId(userId) }];
   }
 
-  // Query filters
   if (query.status) filter.status = query.status;
   if (query.search) {
     filter.$or = [
@@ -58,44 +56,87 @@ export const getAllWarehouses = async ({ userId, role, query = {} }) => {
   const limit = parseInt(query.limit) || 20;
   const skip = (page - 1) * limit;
 
-  const warehouses = await Warehouse.find(filter)
-    .skip(skip)
-    .limit(limit)
-    .sort({ createdAt: -1 })
-    .populate("managerId", "name email")
-    .lean();
+  const [result] = await Warehouse.aggregate([
+    { $match: filter },
+    { $sort: { createdAt: -1 } },
+    {
+      $lookup: {
+        from: "users",
+        localField: "managerId",
+        foreignField: "_id",
+        pipeline: [{ $project: { name: 1, email: 1 } }],
+        as: "managerId",
+      },
+    },
+    {
+      $unwind: {
+        path: "$managerId",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $facet: {
+        data: [{ $skip: skip }, { $limit: limit }],
+        total: [{ $count: "count" }],
+      },
+    },
+  ]);
 
-  const total = await Warehouse.countDocuments(filter);
+  const total = result?.total[0]?.count || 0;
 
   return {
-    data: warehouses,
+    data: result?.data || [],
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   };
 };
 
 export const getWarehouseById = async (id, userId, role) => {
-  const warehouse = await Warehouse.findById(id)
-    .populate("managerId", "name email")
-    .populate("createdBy", "name email")
-    .lean();
+  const [warehouse] = await Warehouse.aggregate([
+    { $match: { _id: new mongoose.Types.ObjectId(id), isActive: true } },
+    {
+      $lookup: {
+        from: "users",
+        localField: "managerId",
+        foreignField: "_id",
+        pipeline: [{ $project: { name: 1, email: 1 } }],
+        as: "managerId",
+      },
+    },
+    {
+      $unwind: {
+        path: "$managerId",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "createdBy",
+        foreignField: "_id",
+        pipeline: [{ $project: { name: 1, email: 1 } }],
+        as: "createdBy",
+      },
+    },
+    {
+      $unwind: {
+        path: "$createdBy",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ]);
 
-  if (!warehouse || !warehouse.isActive) {
+  if (!warehouse) {
     throw new AppError("Warehouse not found or inactive", 404);
   }
 
-  // Permission check (non-admin can only see own/assigned)
   if (
     role !== "admin" &&
     role !== "superadmin" &&
-    warehouse.createdBy.toString() !== userId &&
-    (!warehouse.managerId || warehouse.managerId.toString() !== userId)
+    warehouse.createdBy._id.toString() !== userId &&
+    (!warehouse.managerId || warehouse.managerId._id.toString() !== userId)
   ) {
-    throw new AppError(
-      "You do not have permission to view this warehouse",
-      403,
-    );
+    throw new AppError("You do not have permission to view this warehouse", 403);
   }
-
 
   return warehouse;
 };
