@@ -96,6 +96,7 @@ export const getWarehouseById = async (id, userId, role) => {
     );
   }
 
+
   return warehouse;
 };
 
@@ -128,7 +129,7 @@ export const softDeleteWarehouse = async (id, userId, role) => {
   }
 
   if (role !== "admin" && role !== "superadmin") {
-    throw new AppError("Only Admin can delete warehouses", 403);
+    throw new AppError("Only Admin or Superadmin can delete warehouses", 403);
   }
 
   warehouse.isActive = false;
