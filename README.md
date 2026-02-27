@@ -38,7 +38,7 @@ In India, post-harvest losses account for **₹ 92,651 crore annually** (≈30�
 - **Aggregation & Virtuals** — Efficient dashboard stats & computed fields (daysToExpiry, utilizationPercent)
 
 ## 📁 Project Structure (Assumed)
-```markdown
+``
 # Smart Agri-Warehouse  
 **AI-Powered Post-Harvest Loss Prevention & Intelligent Warehouse Management System**
 
