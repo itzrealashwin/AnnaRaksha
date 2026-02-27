@@ -84,16 +84,12 @@ export const getWarehouseById = async (id, userId, role) => {
   }
 
   // Permission check (non-admin can only see own/assigned)
-  if (
-    role !== "Admin" &&
-    warehouse.createdBy.toString() !== userId &&
-    (!warehouse.managerId || warehouse.managerId.toString() !== userId)
-  ) {
-    throw new AppError(
-      "You do not have permission to view this warehouse",
-      403,
-    );
-  }
+//   if (role !== "Admin") {
+//     throw new AppError(
+//       "You do not have permission to view this warehouse",
+//       403,
+//     );
+//   }
 
   return warehouse;
 };
@@ -126,7 +122,7 @@ export const softDeleteWarehouse = async (id, userId, role) => {
     throw new AppError("Warehouse not found or already inactive", 404);
   }
 
-  if (role !== "Admin") {
+  if (role !== "admin") {
     throw new AppError("Only Admin can delete warehouses", 403);
   }
 
