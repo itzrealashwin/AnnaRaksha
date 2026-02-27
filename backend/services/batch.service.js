@@ -5,34 +5,91 @@ import mongoose from "mongoose";
 
 const generateBatchId = async (produceType = "GEN") => {
   const prefix = produceType.slice(0, 3).toUpperCase();
-  const unique = Date.now();
-  return `${prefix}-${unique}`;
+  const unique = Date.now().toString().slice(-6);
+  const batchId = `${prefix}-${unique}`;
+  
+  // Check uniqueness (rare collision possible but safe)
+  if (await Batch.findOne({ batchId })) {
+    return generateBatchId(produceType); // retry
+  }
+  return batchId;
 };
 
-export const createBatch = async (data, userId, role) => {
-  const warehouse = await Warehouse.findById(data.warehouseId);
+// Helper: Initial risk score based on arrival time (future mein sensor se update hoga)
+const calculateInitialRisk = (batchData) => {
+  const now = new Date();
+  const arrival = new Date(batchData.arrivalDate);
+  const daysStored = Math.floor((now - arrival) / (24 * 60 * 60 * 1000));
+  const shelfPercentUsed = daysStored / batchData.shelfLifeDays;
 
+  let score = 0;
+  if (shelfPercentUsed > 0.8) score = 40;
+  else if (shelfPercentUsed > 0.5) score = 20;
+
+  return Math.min(100, Math.round(score));
+};
+
+// export const createBatch = async (data, userId, role) => {
+//   const warehouse = await Warehouse.findById(data.warehouseId);
+
+//   if (!warehouse || !warehouse.isActive) {
+//     throw new AppError("Warehouse not found or inactive", 404);
+//   }
+
+//   // Capacity validation
+//   if (warehouse.currentStock + data.quantityInitial > warehouse.capacity) {
+//     throw new AppError("Warehouse capacity exceeded", 400);
+//   }
+
+//   const batchId = await generateBatchId(data.produceType);
+
+//   const batch = await Batch.create({
+//     ...data,
+//     batchId,
+//     quantityCurrent: data.quantityInitial,
+//     createdBy: userId,
+//   });
+
+//   // Atomic stock update
+//   await Warehouse.findByIdAndUpdate(data.warehouseId, {
+//     $inc: { currentStock: data.quantityInitial },
+//   });
+
+//   return batch;
+// };
+
+export const createBatch = async (data, userId) => {
+  const warehouse = await Warehouse.findById(data.warehouseId);
   if (!warehouse || !warehouse.isActive) {
     throw new AppError("Warehouse not found or inactive", 404);
   }
 
-  // Capacity validation
   if (warehouse.currentStock + data.quantityInitial > warehouse.capacity) {
     throw new AppError("Warehouse capacity exceeded", 400);
   }
 
   const batchId = await generateBatchId(data.produceType);
 
+  const initialRiskScore = calculateInitialRisk(data);
+
   const batch = await Batch.create({
     ...data,
     batchId,
     quantityCurrent: data.quantityInitial,
     createdBy: userId,
+    riskScore: initialRiskScore,
+    riskLevel: initialRiskScore >= 85 ? "Critical" :
+               initialRiskScore >= 60 ? "High" :
+               initialRiskScore >= 30 ? "Medium" : "Low",
+    lastRiskUpdatedAt: new Date(),
   });
 
   // Atomic stock update
   await Warehouse.findByIdAndUpdate(data.warehouseId, {
-    $inc: { currentStock: data.quantityInitial },
+    $inc: { 
+      currentStock: data.quantityInitial,
+      currentUtilization: data.quantityInitial  // sync utilization
+    },
   });
 
   return batch;
@@ -242,7 +299,54 @@ export const deleteBatch = async (id, userRole) => {
   return { message: "Batch soft-deleted successfully" };
 };
 
-export const dispatchBatch = async (batchId, quantity, userRole) => {
+// export const dispatchBatch = async (batchId, quantity, userRole) => {
+//   if (!mongoose.Types.ObjectId.isValid(batchId)) {
+//     throw new AppError("Invalid batch ID", 400);
+//   }
+
+//   if (!quantity || quantity <= 0) {
+//     throw new AppError("Dispatch quantity must be greater than 0", 400);
+//   }
+
+//   const batch = await Batch.findOne({
+//     _id: batchId,
+//     isDeleted: false,
+//     isActive: true,
+//   });
+
+//   if (!batch) {
+//     throw new AppError("Batch not found", 404);
+//   }
+
+//   if (batch.isLocked) {
+//     throw new AppError("Batch is locked", 400);
+//   }
+
+//   if (batch.quantityCurrent < quantity) {
+//     throw new AppError("Insufficient quantity in batch", 400);
+//   }
+
+//   // Reduce batch quantity
+//   batch.quantityCurrent -= quantity;
+
+//   if (batch.quantityCurrent === 0) {
+//     batch.status = "Dispatched";
+//   }
+
+//   await batch.save();
+
+//   // Reduce warehouse stock
+//   await Warehouse.findByIdAndUpdate(batch.warehouseId, {
+//     $inc: { currentStock: -quantity },
+//   });
+
+//   return {
+//     message: "Batch dispatched successfully",
+//     remainingQuantity: batch.quantityCurrent,
+//   };
+// };
+
+export const dispatchBatch = async (batchId, quantity) => {
   if (!mongoose.Types.ObjectId.isValid(batchId)) {
     throw new AppError("Invalid batch ID", 400);
   }
@@ -251,25 +355,13 @@ export const dispatchBatch = async (batchId, quantity, userRole) => {
     throw new AppError("Dispatch quantity must be greater than 0", 400);
   }
 
-  const batch = await Batch.findOne({
-    _id: batchId,
-    isDeleted: false,
-    isActive: true,
-  });
+  const batch = await Batch.findOne({ _id: batchId, isDeleted: false, isActive: true });
+  if (!batch) throw new AppError("Batch not found", 404);
 
-  if (!batch) {
-    throw new AppError("Batch not found", 404);
-  }
+  if (batch.isLocked) throw new AppError("Batch is locked", 400);
+  if (batch.quantityCurrent < quantity) throw new AppError("Insufficient quantity", 400);
 
-  if (batch.isLocked) {
-    throw new AppError("Batch is locked", 400);
-  }
-
-  if (batch.quantityCurrent < quantity) {
-    throw new AppError("Insufficient quantity in batch", 400);
-  }
-
-  // Reduce batch quantity
+  const oldQuantity = batch.quantityCurrent;
   batch.quantityCurrent -= quantity;
 
   if (batch.quantityCurrent === 0) {
@@ -278,15 +370,29 @@ export const dispatchBatch = async (batchId, quantity, userRole) => {
 
   await batch.save();
 
-  // Reduce warehouse stock
+  // Update warehouse – both stock and utilization
   await Warehouse.findByIdAndUpdate(batch.warehouseId, {
-    $inc: { currentStock: -quantity },
+    $inc: { 
+      currentStock: -quantity,
+      currentUtilization: -quantity 
+    },
   });
 
   return {
     message: "Batch dispatched successfully",
     remainingQuantity: batch.quantityCurrent,
+    status: batch.status,
   };
+};
+
+// New: Recalculate risk for a single batch (call from sensor or cron)
+export const recalculateBatchRisk = async (batchId, latestSensor = null) => {
+  const batch = await Batch.findById(batchId);
+  if (!batch) throw new AppError("Batch not found", 404);
+
+  await batch.recalculateRisk(latestSensor); // model method call
+
+  return batch;
 };
 
 export default {
@@ -295,5 +401,6 @@ export default {
   getBatchById,
   updateBatch,
   deleteBatch,
-  dispatchBatch
+  dispatchBatch,
+  recalculateBatchRisk,
 };
