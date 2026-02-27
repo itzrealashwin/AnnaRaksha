@@ -5,7 +5,6 @@ import SensorReading from "../model/sensorReading.model.js";
 import Alert from "../model/aiAlert.model.js";
 import AppError from "../utils/AppError.js";
 import mongoose from "mongoose";
-
 const DEFAULT_RISK_THRESHOLD = 50;
 const DEFAULT_LIMIT = 10;
 

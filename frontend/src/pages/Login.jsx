@@ -66,7 +66,7 @@ export default function Login() {
       await loginAsync({ email: formData.email, password: formData.password });
 
       // Proceed to the main app
-      navigate("/");
+      navigate("/dashboard");
     } catch (error) {
       // Check if the backend rejected the login because the email isn't verified
       if (error.response?.data?.code === "EMAIL_NOT_VERIFIED") {

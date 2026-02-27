@@ -9,7 +9,7 @@ import { useUser } from "@/hooks/useAuth.js";
  */
 export default function GuestRoute() {
   const { data: user, isLoading } = useUser();
-
+  
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-white dark:bg-slate-950">

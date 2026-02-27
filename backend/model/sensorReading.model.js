@@ -28,8 +28,7 @@ const sensorReadingSchema = new mongoose.Schema(
   }
 );
 
-sensorReadingSchema.index({ warehouseId: 1, createdAt: -1 });
-sensorReadingSchema.index({ createdAt: -1 });
+sensorReadingSchema.index({ warehouseId: 1, recordedAt: -1 });
 
 const SensorReading = mongoose.model('SensorReading', sensorReadingSchema);
 

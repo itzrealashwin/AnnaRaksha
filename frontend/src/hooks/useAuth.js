@@ -7,11 +7,24 @@ import { authService } from '@/services/api/auth.service.js';
 
 export const useUser = () => {
     return useQuery({
-        queryKey: ['authUser'], // The unique cache key for the user data
-        queryFn: authService.me, 
-        // We set retry to false because if /auth/me fails (e.g., 401 Unauthorized), 
-        // we don't want TanStack Query to keep retrying a bad token.
+        queryKey: ['authUser'],
+        queryFn: async () => {
+            try {
+                // Execute the actual API call
+                return await authService.me();
+            } catch (error) {
+                // If the token is expired or invalid, destroy it to stop future attempts
+                localStorage.removeItem('token');
+                throw error;
+            }
+        },
         retry: false, 
+        // 1. Only run this query if a token actually exists
+        enabled: !!localStorage.getItem('token'), 
+        // 2. Prevent infinite refetching when clicking around the app/window
+        refetchOnWindowFocus: false, 
+        // 3. Keep the user data "fresh" for 5 minutes so it doesn't refetch on every component mount
+        staleTime: 1000 * 60 * 5, 
     });
 };
 

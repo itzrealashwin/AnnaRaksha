@@ -189,6 +189,30 @@ export const getBatchById = async (id) => {
       },
     },
     { $unwind: "$warehouse" },
+    {
+      $lookup: {
+        from: "sensorreadings",
+        let: { warehouseId: "$warehouseId" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$warehouseId", "$$warehouseId"] } } },
+          { $sort: { recordedAt: -1 } },
+          { $limit: 1 }
+        ],
+        as: "latestSensorReading"
+      }
+    },
+    {
+      $addFields: {
+        conditions: {
+          $arrayElemAt: ["$latestSensorReading", 0]
+        }
+      }
+    },
+    {
+      $project: {
+        latestSensorReading: 0
+      }
+    }
   ];
 
   const result = await Batch.aggregate(pipeline);

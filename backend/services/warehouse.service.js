@@ -3,8 +3,7 @@
 import Warehouse from "../model/warehouse.model.js";
 import AppError from "../utils/AppError.js";
 import mongoose from "mongoose";
-
-
+import Batch from "../model/batch.model.js";
 // Helper: Generate unique code like PUNE-001, MUM-002 etc.
 const generateUniqueCode = async (namePrefix = "WH") => {
   const prefix = namePrefix.slice(0, 4).toUpperCase();
@@ -315,31 +314,39 @@ export const updateWarehouse = async (id, data, userId, role) => {
 
 
 export const softDeleteWarehouse = async (id, userId, role) => {
-  const warehouse = await Warehouse.findById(id);
+  // 1. FAIL FAST: Check authorization before making ANY database calls
+  if (role !== "admin" && role !== "superadmin") {
+    throw new AppError("Only Admin or Superadmin can delete warehouses", 403);
+  }
+
+  // 2. PARALLELIZE & OPTIMIZE QUERIES
+  // Run both queries simultaneously. 
+  // Use .select() to only fetch required fields.
+  // Use .exists() instead of .countDocuments() for a massive speed boost.
+  const [warehouse, hasActiveBatches] = await Promise.all([
+    Warehouse.findById(id).select("isActive").lean(),
+    Batch.exists({
+      warehouseId: id, // Mongoose handles string -> ObjectId conversion automatically here
+      isActive: true,
+      isDeleted: false,
+      status: { $nin: ["Dispatched", "Disposed"] },
+    })
+  ]);
+
   if (!warehouse || !warehouse.isActive) {
     throw new AppError("Warehouse not found or already inactive", 404);
   }
 
-  const isAdmin = role === "admin" || role === "superadmin";
-  if (!isAdmin) {
-    throw new AppError("Only Admin or Superadmin can delete warehouses", 403);
+  if (hasActiveBatches) {
+    // Note: We don't provide the exact count anymore, as calculating the exact count is slower.
+    throw new AppError("Cannot delete warehouse containing active batches", 400);
   }
 
-  // Safety: Check if any active batches exist
-  const activeBatches = await Batch.countDocuments({
-    warehouseId: id,
-    isActive: true,
-    isDeleted: false,
-    status: { $nin: ["Dispatched", "Disposed"] },
-  });
-
-  if (activeBatches > 0) {
-    throw new AppError(`Cannot delete warehouse with ${activeBatches} active batches`, 400);
-  }
-
-  warehouse.isActive = false;
-  warehouse.status = "inactive";
-  await warehouse.save();
+  // 3. DIRECT UPDATE: Bypasses Mongoose document hydration and save hooks for speed
+  await Warehouse.updateOne(
+    { _id: id },
+    { $set: { isActive: false, status: "inactive" } }
+  );
 
   return { message: "Warehouse soft-deleted successfully" };
 };

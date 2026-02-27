@@ -14,7 +14,8 @@ import alertRoutes from "./routes/alert.routes.js";
 import { startAiCronJob } from "./jobs/aiScheduler.job.js";
 import batchRoutes from "./routes/batch.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
-
+import sensorRoutes from "./routes/sensor.routes.js";
+import { startSensorCronJob } from "./jobs/sensorSimulator.job.js";
 
 const app = express();
 
@@ -60,6 +61,7 @@ app.use("/api/warehouse", warehouseRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use("/api/batches", batchRoutes);
+app.use("/api/sensors", sensorRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────────
 app.use((req, res) => {
@@ -79,6 +81,7 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   await connectDB();
   startAiCronJob(); // register daily Gemini scan — runs at midnight
+  startSensorCronJob();
   app.listen(PORT, () => {
     console.log(
       `Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`,
