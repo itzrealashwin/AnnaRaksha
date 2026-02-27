@@ -8,6 +8,12 @@ const warehouseSchema = new mongoose.Schema(
       trim: true,
       maxlength: 120,
     },
+    // in kg or units
+    currentStock: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     code: {
       type: String,
       required: true,
@@ -65,6 +71,7 @@ const warehouseSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+     
     isActive: {
       type: Boolean,
       default: true,
@@ -73,15 +80,17 @@ const warehouseSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
   },
 );
 
+warehouseSchema.index({ name: 1 });
 warehouseSchema.index({ code: 1 }, { unique: true });
 warehouseSchema.index({ status: 1, isActive: 1 });
 warehouseSchema.index({ createdBy: 1, isActive: 1 });
 
 warehouseSchema.virtual("utilizationPercent").get(function () {
-  if (!this.capacity) return 0;
+  if (!this.capacity || this.capacity === 0) return 0;
   return Math.min(100, (this.currentUtilization / this.capacity) * 100);
 });
 
