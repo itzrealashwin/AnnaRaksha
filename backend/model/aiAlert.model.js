@@ -18,6 +18,7 @@ const aiAlertSchema = new mongoose.Schema(
       ref: 'Batch',
       default: null,
       index: true,
+      required: false
     },
     riskLevel: {
       type: String,
