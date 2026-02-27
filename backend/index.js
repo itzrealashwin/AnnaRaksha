@@ -1,16 +1,17 @@
-import 'dotenv/config';
+import "dotenv/config";
 
-import express from 'express';
-import helmet from 'helmet';
-import cors from 'cors';
-import cookieParser from 'cookie-parser';
-import connectDB from './config/db.js';
-import { globalLimiter } from './middlewares/rateLimiter.middleware.js';
-import errorHandler from './middlewares/error.middleware.js';
-import authRoutes from './routes/auth.routes.js';
+import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import connectDB from "./config/db.js";
+import { globalLimiter } from "./middlewares/rateLimiter.middleware.js";
+import errorHandler from "./middlewares/error.middleware.js";
+import authRoutes from "./routes/auth.routes.js";
 
-import aiRoutes from './routes/ai.routes.js';
-import warehouseRoutes from "./routes/warehouse.routes.js"
+import aiRoutes from "./routes/ai.routes.js";
+import warehouseRoutes from "./routes/warehouse.routes.js";
+import dashboardRoutes from "./routes/dashboard.routes.js";
 
 const app = express();
 
@@ -27,14 +28,14 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: true,   // reflect request origin
+    origin: true, // reflect request origin
     credentials: true,
-  })
+  }),
 );
 
 // ─── Body parsers ────────────────────────────────────────────
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
 // ─── Cookie parser ───────────────────────────────────────────
 app.use(cookieParser(process.env.COOKIE_SECRET));
@@ -43,23 +44,24 @@ app.use(cookieParser(process.env.COOKIE_SECRET));
 app.use(globalLimiter);
 
 // ─── Health check ────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ success: true, message: 'Server is running.' });
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ success: true, message: "Server is running." });
 });
 
 // ─── Routes ──────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
+app.use("/api/auth", authRoutes);
 
-app.use('/api/ai', aiRoutes );
+app.use("/api/ai", aiRoutes);
 
-app.use('/api/warehouse', warehouseRoutes);
+app.use("/api/warehouse", warehouseRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: `Route ${req.originalUrl} not found.`,
-    code: 'ROUTE_NOT_FOUND',
+    code: "ROUTE_NOT_FOUND",
   });
 });
 
@@ -72,12 +74,14 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   await connectDB();
   app.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    console.log(
+      `Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`,
+    );
   });
 };
 
 startServer().catch((err) => {
-  console.error('Failed to start server:', err);
+  console.error("Failed to start server:", err);
   process.exit(1);
 });
 
