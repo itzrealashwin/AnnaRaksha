@@ -8,10 +8,10 @@ import connectDB from './config/db.js';
 import { globalLimiter } from './middlewares/rateLimiter.middleware.js';
 import errorHandler from './middlewares/error.middleware.js';
 import authRoutes from './routes/auth.routes.js';
-
 import aiRoutes from './routes/ai.routes.js';
-import warehouseRoutes from "./routes/warehouse.routes.js"
-import batchRoutes from "./routes/batch.routes.js";
+import warehouseRoutes from './routes/warehouse.routes.js';
+import alertRoutes from './routes/alert.routes.js';
+import { startAiCronJob } from './jobs/aiScheduler.job.js';
 
 const app = express();
 
@@ -50,10 +50,9 @@ app.get('/api/health', (req, res) => {
 
 // ─── Routes ──────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
-
-app.use('/api/ai', aiRoutes );
-
+app.use('/api/ai', aiRoutes);
 app.use('/api/warehouse', warehouseRoutes);
+app.use('/api/alerts', alertRoutes);
 
 app.use('/api/batches', batchRoutes);
 
@@ -74,6 +73,7 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
+  startAiCronJob(); // register daily Gemini scan — runs at midnight
   app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
