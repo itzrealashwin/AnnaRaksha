@@ -41,7 +41,7 @@ export const getAllWarehouses = async ({ userId, role, query = {} }) => {
   const filter = { isActive: true };
 
   // Role-based access filtering
-  if (role !== "Admin") {
+  if (role !== "admin" && role !== "superadmin") {
     filter.$or = [{ createdBy: userId }, { managerId: userId }];
   }
 
@@ -85,7 +85,8 @@ export const getWarehouseById = async (id, userId, role) => {
 
   // Permission check (non-admin can only see own/assigned)
   if (
-    role !== "Admin" &&
+    role !== "admin" &&
+    role !== "superadmin" &&
     warehouse.createdBy.toString() !== userId &&
     (!warehouse.managerId || warehouse.managerId.toString() !== userId)
   ) {
@@ -105,7 +106,7 @@ export const updateWarehouse = async (id, data, userId, role) => {
     throw new AppError("Warehouse not found or inactive", 404);
   }
 
-  if (role !== "Admin" && warehouse.createdBy.toString() !== userId) {
+  if (role !== "admin" && role !== "superadmin" && warehouse.createdBy.toString() !== userId) {
     throw new AppError("Unauthorized to update this warehouse", 403);
   }
 
@@ -126,7 +127,7 @@ export const softDeleteWarehouse = async (id, userId, role) => {
     throw new AppError("Warehouse not found or already inactive", 404);
   }
 
-  if (role !== "Admin") {
+  if (role !== "admin" && role !== "superadmin") {
     throw new AppError("Only Admin can delete warehouses", 403);
   }
 

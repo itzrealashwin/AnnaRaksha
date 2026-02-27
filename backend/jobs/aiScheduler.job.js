@@ -1,5 +1,6 @@
 import Batch from "../model/batch.model.js";
 import SensorReading from "../model/sensorReading.model.js";
+import Warehouse from "../model/warehouse.model.js";
 import AppError from "../utils/AppError.js";
 
 import { analyzeRisk } from "../services/riskAnalyzer.service.js";
@@ -27,7 +28,10 @@ export const runAiScheduler = async () => {
 
       if (!latestSensor) continue;
 
-      if (shouldCallGemini(batch, latestSensor)) {
+      const warehouse = await Warehouse.findById(batch.warehouseId).select("warehouseType");
+      const warehouseType = warehouse?.warehouseType ?? "general";
+
+      if (shouldCallGemini(batch, latestSensor, warehouseType)) {
         const riskData = await analyzeRisk(batch);
         await writeRiskToBatch(batch._id, riskData);
         await createAlert(batch, riskData);
