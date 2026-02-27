@@ -129,6 +129,7 @@ smart-agri-warehouse/
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    OTP_EXPIRY_MINUTES=5
    NODE_ENV=development
+   GEMINI_API_KEY=YOUR_API_KEY
    ```
 
 4. Start the server
