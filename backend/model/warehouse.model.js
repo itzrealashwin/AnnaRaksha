@@ -59,14 +59,7 @@ const warehouseSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    optimalTempRange: {
-      min: { type: Number, required: true },
-      max: { type: Number, required: true },
-    },
-    optimalHumidityRange: {
-      min: { type: Number, required: true },
-      max: { type: Number, required: true },
-    },
+     
     isActive: {
       type: Boolean,
       default: true,
