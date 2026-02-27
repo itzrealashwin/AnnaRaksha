@@ -34,7 +34,6 @@ In India, post-harvest losses account for **₹ 92,651 crore annually** (≈30�
 - **Authentication** — JWT + OTP (email/SMS) + Google OAuth  
 - **Validation** — Joi schemas + rate limiting  
 - **Error Handling** — Global error catcher + custom AppError  
-- **Real-time Ready** — Designed for future WebSocket / MQTT integration  
 - **Aggregation & Virtuals** — Efficient dashboard stats & computed fields (daysToExpiry, utilizationPercent)
 
 ## 📁 Project Structure (Assumed)
