@@ -85,9 +85,9 @@ const warehouseSchema = new mongoose.Schema(
 );
 
 warehouseSchema.index({ name: 1 });
-warehouseSchema.index({ code: 1 }, { unique: true });
 warehouseSchema.index({ status: 1, isActive: 1 });
 warehouseSchema.index({ createdBy: 1, isActive: 1 });
+
 
 warehouseSchema.virtual("utilizationPercent").get(function () {
   if (!this.capacity || this.capacity === 0) return 0;
