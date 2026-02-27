@@ -8,6 +8,11 @@ const dispatchLogSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    warehouseId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Warehouse', 
+    required: true 
+  },
     quantityDispatched: {
       type: Number,
       required: true,
@@ -19,6 +24,8 @@ const dispatchLogSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+
+    dispatchedAt: { type: Date, default: Date.now }
   },
   {
     timestamps: true,

@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const warehouseSchema = new mongoose.Schema(
   {
@@ -8,12 +8,29 @@ const warehouseSchema = new mongoose.Schema(
       trim: true,
       maxlength: 120,
     },
+    // in kg or units
+    currentStock: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     code: {
       type: String,
       required: true,
       unique: true,
       uppercase: true,
       trim: true,
+    },
+    warehouseType: {
+      type: String,
+      enum: [
+        "general",
+        "cold",
+        "dry",
+        "open-air",
+      ],
+      default: "general",
+      index: true,
     },
     location: {
       address: { type: String, trim: true },
@@ -26,6 +43,7 @@ const warehouseSchema = new mongoose.Schema(
         lng: Number,
       },
     },
+
     capacity: {
       type: Number,
       required: true,
@@ -38,21 +56,22 @@ const warehouseSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'inactive', 'maintenance'],
-      default: 'active',
+      enum: ["active", "inactive", "maintenance"],
+      default: "active",
       index: true,
     },
     managerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       index: true,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
       index: true,
     },
+     
     isActive: {
       type: Boolean,
       default: true,
@@ -61,18 +80,20 @@ const warehouseSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+    toJSON: { virtuals: true },
+  },
 );
 
+warehouseSchema.index({ name: 1 });
 warehouseSchema.index({ code: 1 }, { unique: true });
 warehouseSchema.index({ status: 1, isActive: 1 });
 warehouseSchema.index({ createdBy: 1, isActive: 1 });
 
-warehouseSchema.virtual('utilizationPercent').get(function () {
-  if (!this.capacity) return 0;
+warehouseSchema.virtual("utilizationPercent").get(function () {
+  if (!this.capacity || this.capacity === 0) return 0;
   return Math.min(100, (this.currentUtilization / this.capacity) * 100);
 });
 
-const Warehouse = mongoose.model('Warehouse', warehouseSchema);
+const Warehouse = mongoose.model("Warehouse", warehouseSchema);
 
 export default Warehouse;

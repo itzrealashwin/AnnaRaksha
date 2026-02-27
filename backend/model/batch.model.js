@@ -1,19 +1,20 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const batchSchema = new mongoose.Schema(
   {
-    batchCode: {
+    batchId: {
       type: String,
       required: true,
       unique: true,
       uppercase: true,
       trim: true,
+      index: true,
     },
     warehouseId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Warehouse',
+      ref: "Warehouse",
       required: true,
       index: true,
     },
@@ -21,15 +22,13 @@ const batchSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      index: true,
     },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
+    quantityInitial: { type: Number, required: true, min: 1 },
+    quantityCurrent: { type: Number, required: true, min: 0 },
     unit: {
       type: String,
-      default: 'kg',
+      default: "kg",
       trim: true,
     },
     arrivalDate: {
@@ -45,21 +44,31 @@ const batchSchema = new mongoose.Schema(
       type: Date,
       index: true,
     },
+    daysStored: { type: Number },
     status: {
       type: String,
-      enum: ['stored', 'atRisk', 'expired', 'dispatched'],
-      default: 'stored',
+      enum: [
+        "Fresh",
+        "Maturing",
+        "NearExpiry",
+        "Expired",
+        "Dispatched",
+        "Disposed",
+      ],
+      default: "Fresh",
       index: true,
     },
     riskScore: {
       type: Number,
       default: 0,
       min: 0,
+      max: 100,
+      index: true,
     },
     riskLevel: {
       type: String,
-      enum: ['Low', 'Medium', 'High', 'Critical'],
-      default: 'Low',
+      enum: ["Low", "Medium", "High", "Critical"],
+      default: "Low",
       index: true,
     },
     lastAiAnalyzedAt: {
@@ -79,16 +88,19 @@ const batchSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+    lastRiskUpdatedAt: { type: Date },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
       index: true,
     },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 batchSchema.index({ batchCode: 1 }, { unique: true });
@@ -96,17 +108,20 @@ batchSchema.index({ warehouseId: 1, status: 1 });
 batchSchema.index({ warehouseId: 1, riskLevel: 1, riskScore: -1 });
 batchSchema.index({ warehouseId: 1, isActive: 1 });
 
-batchSchema.pre('save', function (next) {
-  const arrivalChanged = this.isModified('arrivalDate');
-  const shelfChanged = this.isModified('shelfLifeDays');
+batchSchema.pre("save", function (next) {
+  const arrivalChanged = this.isModified("arrivalDate");
+  const shelfChanged = this.isModified("shelfLifeDays");
 
-  if ((arrivalChanged || shelfChanged) && this.arrivalDate && this.shelfLifeDays !== undefined) {
-    this.expiryDate = new Date(this.arrivalDate.getTime() + this.shelfLifeDays * MS_PER_DAY);
+  if (
+    (arrivalChanged || shelfChanged) &&  this.arrivalDate &&   this.shelfLifeDays !== undefined  ) {
+    this.expiryDate = new Date( this.arrivalDate.getTime() + this.shelfLifeDays * MS_PER_DAY );
+    const now = new Date();
+    this.daysStored = Math.floor((now - this.arrivalDate) / (1000 * 60 * 60 * 24));
   }
 
   next();
 });
 
-const Batch = mongoose.model('Batch', batchSchema);
+const Batch = mongoose.model("Batch", batchSchema);
 
 export default Batch;
