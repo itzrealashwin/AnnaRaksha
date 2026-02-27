@@ -111,7 +111,165 @@ export const getBatches = async (query) => {
   };
 };
 
+export const getBatchById = async (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new AppError("Invalid batch ID", 400);
+  }
+
+  const pipeline = [
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(id),
+        isDeleted: false,
+      },
+    },
+    {
+      $lookup: {
+        from: "warehouses",
+        localField: "warehouseId",
+        foreignField: "_id",
+        as: "warehouse",
+      },
+    },
+    { $unwind: "$warehouse" },
+  ];
+
+  const result = await Batch.aggregate(pipeline);
+
+  if (!result.length) {
+    throw new AppError("Batch not found", 404);
+  }
+
+  return result[0];
+};
+
+export const updateBatch = async (id, data) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new AppError("Invalid batch ID", 400);
+  }
+
+  const batch = await Batch.findOne({
+    _id: id,
+    isDeleted: false,
+  });
+
+  if (!batch) {
+    throw new AppError("Batch not found", 404);
+  }
+
+  if (batch.isLocked) {
+    throw new AppError("Batch is locked and cannot be edited", 400);
+  }
+
+  // Prevent dangerous updates
+  const forbiddenFields = [
+    "batchId",
+    "quantityCurrent",
+    "warehouseId",
+    "riskScore",
+    "riskLevel",
+    "createdBy",
+  ];
+
+  forbiddenFields.forEach((field) => {
+    if (data[field] !== undefined) {
+      delete data[field];
+    }
+  });
+
+  // Assign safe fields
+  Object.assign(batch, data);
+
+  await batch.save(); // triggers pre-save hook for expiryDate
+
+  return batch;
+};
+
+export const deleteBatch = async (id, userRole) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new AppError("Invalid batch ID", 400);
+  }
+
+  if (userRole !== "admin" && userRole !== "superadmin") {
+    throw new AppError("Only Admin or Superadmin can delete batch", 403);
+  }
+
+  const batch = await Batch.findOne({
+    _id: id,
+    isDeleted: false,
+  });
+
+  if (!batch) {
+    throw new AppError("Batch not found or already deleted", 404);
+  }
+
+  // Reduce stock from warehouse
+  await Warehouse.findByIdAndUpdate(batch.warehouseId, {
+    $inc: { currentStock: -batch.quantityCurrent },
+  });
+
+  // Soft delete batch
+  batch.isDeleted = true;
+  batch.isActive = false;
+  batch.deletedAt = new Date();
+
+  await batch.save();
+
+  return { message: "Batch soft-deleted successfully" };
+};
+
+export const dispatchBatch = async (batchId, quantity, userRole) => {
+  if (!mongoose.Types.ObjectId.isValid(batchId)) {
+    throw new AppError("Invalid batch ID", 400);
+  }
+
+  if (!quantity || quantity <= 0) {
+    throw new AppError("Dispatch quantity must be greater than 0", 400);
+  }
+
+  const batch = await Batch.findOne({
+    _id: batchId,
+    isDeleted: false,
+    isActive: true,
+  });
+
+  if (!batch) {
+    throw new AppError("Batch not found", 404);
+  }
+
+  if (batch.isLocked) {
+    throw new AppError("Batch is locked", 400);
+  }
+
+  if (batch.quantityCurrent < quantity) {
+    throw new AppError("Insufficient quantity in batch", 400);
+  }
+
+  // Reduce batch quantity
+  batch.quantityCurrent -= quantity;
+
+  if (batch.quantityCurrent === 0) {
+    batch.status = "Dispatched";
+  }
+
+  await batch.save();
+
+  // Reduce warehouse stock
+  await Warehouse.findByIdAndUpdate(batch.warehouseId, {
+    $inc: { currentStock: -quantity },
+  });
+
+  return {
+    message: "Batch dispatched successfully",
+    remainingQuantity: batch.quantityCurrent,
+  };
+};
+
 export default {
   createBatch,
   getBatches,
+  getBatchById,
+  updateBatch,
+  deleteBatch,
+  dispatchBatch
 };
