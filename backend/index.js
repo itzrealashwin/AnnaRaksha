@@ -9,11 +9,9 @@ import { globalLimiter } from "./middlewares/rateLimiter.middleware.js";
 import errorHandler from "./middlewares/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 
+import dashboardRoutes from "./routes/dashboard.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import warehouseRoutes from "./routes/warehouse.routes.js";
-import dashboardRoutes from "./routes/dashboard.routes.js";
-import aiRoutes from './routes/ai.routes.js';
-import warehouseRoutes from "./routes/warehouse.routes.js"
 import batchRoutes from "./routes/batch.routes.js";
 
 const app = express();
@@ -59,7 +57,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/warehouse", warehouseRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
-app.use('/api/batches', batchRoutes);
+app.use("/api/batches", batchRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────────
 app.use((req, res) => {
