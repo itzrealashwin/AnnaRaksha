@@ -107,7 +107,7 @@ batchSchema.index({ warehouseId: 1, status: 1 });
 batchSchema.index({ warehouseId: 1, riskLevel: 1, riskScore: -1 });
 batchSchema.index({ warehouseId: 1, isActive: 1 });
 
-batchSchema.pre("save", function (next) {
+batchSchema.pre("save", function () {
   const arrivalChanged = this.isModified("arrivalDate");
   const shelfChanged = this.isModified("shelfLifeDays");
 
@@ -118,7 +118,6 @@ batchSchema.pre("save", function (next) {
     this.daysStored = Math.floor((now - this.arrivalDate) / (1000 * 60 * 60 * 24));
   }
 
-  next();
 });
 
 const Batch = mongoose.model("Batch", batchSchema);
