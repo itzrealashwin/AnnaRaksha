@@ -80,7 +80,7 @@ In India, post-harvest losses account for **₹ 92,651 crore annually** (≈30�
 ## 📁 Project Structure (Assumed)
 
 ```
-smart-agri-warehouse/
+AnnaRaksha/
 ├── src/
 │   ├── models/           # Batch, Warehouse, SensorReading, AIAlert, User...
 │   ├── controllers/      # auth, warehouse, batch, dashboard, alert
@@ -89,6 +89,7 @@ smart-agri-warehouse/
 │   ├── middlewares/      # protect, authorizeRoles, validate, rateLimiters
 │   ├── utils/            # AppError, catchAsync, generateBatchId...
 │   └── config/           # db, env, constants
+|   |___ AI/
 ├── .env.example
 ├── package.json
 └── README.md
@@ -107,8 +108,8 @@ smart-agri-warehouse/
 1. Clone the repository
 
    ```bash
-   git clone https://github.com/yourusername/smart-agri-warehouse.git
-   cd smart-agri-warehouse
+   git clone https://github.com/itzrealashwin/AnnaRaksha.git
+   cd AnnaRaksha
    ```
 
 2. Install dependencies
