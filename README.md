@@ -6,7 +6,7 @@
 [![Express](https://img.shields.io/badge/Express-4.x-orange)](https://expressjs.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Smart Agri-Warehouse** is a full-stack backend system designed to drastically reduce post-harvest losses in agriculture (especially for fruits, vegetables, and grains) through:
+**AnnaRaksha - Smart Agriculture Warehouse System** is a full-stack backend system designed to drastically reduce post-harvest losses in agriculture (especially for fruits, vegetables, and grains) through:
 
 - Real-time environmental monitoring  
 - Dynamic AI-driven risk scoring  
